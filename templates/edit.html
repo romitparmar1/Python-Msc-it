@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Todo</title>
+</head>
+<body>
+
+<h1>Edit Todo</h1>
+
+<form action="/edit/{{ todo.id }}" method="POST">
+
+    <label>Todo Name</label>
+    <input
+        type="text"
+        name="todo-name"
+        value="{{ todo.name }}"
+        required
+    >
+
+    <br><br>
+
+    <label>Due Date</label>
+    <input
+        type="date"
+        name="todo-date"
+        value="{{ todo.due_date.strftime('%Y-%m-%d') }}"
+        required
+    >
+
+    <br><br>
+
+<label>Status</label>
+
+    <select name="todo-status" required>
+
+        <option value="Pending"
+        {% if todo.status == "Pending" %}selected{% endif %}>
+        Pending
+        </option>
+
+        <option value="Completed"
+        {% if todo.status == "Completed" %}selected{% endif %}>
+        Completed
+        </option>
+
+    </select>
+
+
+    <br><br>
+
+    <button type="submit">Update Todo</button>
+
+</form>
+
+<br>
+
+<a href="/home">
+    <button>Back</button>
+</a>
+
+</body>
+</html>
