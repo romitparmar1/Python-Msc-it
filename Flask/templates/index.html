@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Todo App</title>
+
+    <style>
+
+        body {
+            font-family: Arial;
+            margin: 40px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            margin-top: 30px;
+        }
+
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #ddd;
+        }
+
+        button {
+            padding: 7px 15px;
+            cursor: pointer;
+        }
+
+        .add-form {
+            margin-bottom: 30px;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <div class="add-form">
+
+        <h2>Add Todo</h2>
+
+        <form action="/add" method="POST">
+
+            <input
+                type="text"
+                name="todo-name"
+                placeholder="Enter todo name"
+                required
+            >
+
+            <input
+                type="date"
+                name="todo-date"
+                required
+            >
+
+            <select name="todo-status" required>
+
+                <option value="">
+                    Select Status
+                </option>
+
+                <option value="Pending">
+                    Pending
+                </option>
+
+                <option value="Completed">
+                    Completed
+                </option>
+
+            </select>
+
+            <button type="submit">
+                Add Todo
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <!-- SHOW TODO LIST BUTTON -->
+
+    <a href="/get">
+
+        <button type="button">
+            Show Todo List
+        </button>
+
+    </a>
+
+
+    <!-- TODO LIST -->
+
+    {% if show_todos %}
+
+        <h2>Todo List</h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>ID</th>
+
+                    <th>Name</th>
+
+                    <th>Date</th>
+
+                    <th>Status</th>
+
+                    <th>Edit</th>
+
+                    <th>Delete</th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                {% for todo in todos %}
+
+                <tr>
+
+                    <!-- ID -->
+
+                    <td>
+                        {{ todo.id }}
+                    </td>
+
+
+                    <!-- NAME -->
+
+                    <td>
+                        {{ todo.name }}
+                    </td>
+
+
+                    <!-- DATE -->
+
+                    <td>
+                        {{ todo.due_date.strftime("%Y-%m-%d") }}
+                    </td>
+
+
+                    <!-- STATUS -->
+
+                    <td>
+                        {{ todo.status }}
+                    </td>
+
+
+                    <!-- EDIT -->
+
+                    <td>
+
+                        <a href="/edit/{{ todo.id }}">
+
+                            <button type="button">
+                                Edit
+                            </button>
+
+                        </a>
+
+                    </td>
+
+
+                    <!-- DELETE -->
+
+                    <td>
+
+                        <form
+                            action="/delete/{{ todo.id }}"
+                            method="POST"
+                        >
+
+                            <button type="submit">
+                                Delete
+                            </button>
+
+                        </form>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    {% endif %}
+
+
+</body>
+
+</html>
