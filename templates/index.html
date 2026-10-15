@@ -1,0 +1,198 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List Manager</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 30px;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #354b8c;
+        }
+
+        .form-box, .table-box {
+            background: white;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 1000px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px #ddd;
+        }
+
+        input, select {
+            padding: 9px;
+            margin: 7px 0 15px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button, .action {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 2px;
+        }
+
+        .add-btn {
+            background: #354b8c;
+            color: white;
+        }
+
+        .edit-btn {
+            background: #f3c969;
+            color: #222;
+        }
+
+        .delete-btn {
+            background: #d9534f;
+            color: white;
+        }
+
+        .toggle-btn {
+            background: #d8eee0;
+            color: #21633c;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+        }
+
+        th, td {
+            border-bottom: 1px solid #ddd;
+            padding: 12px 8px;
+            text-align: left;
+        }
+
+        th {
+            background: #e9edf7;
+        }
+
+        .inline-form {
+            display: inline;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                margin: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>My Daily Todo List</h1>
+
+    <div class="form-box">
+        <h2>Add New Todo</h2>
+
+        <form action="/add" method="post">
+            <label for="title">Title</label>
+            <input type="text" name="title" id="title" required>
+
+            <label for="description">Description</label>
+            <input type="text" name="description" id="description" required>
+
+            <label for="priority">Priority</label>
+            <select name="priority" id="priority">
+                <option value="high">High</option>
+                <option value="medium" selected>Medium</option>
+                <option value="low">Low</option>
+            </select>
+
+            <label for="is_complited">Status</label>
+            <select name="is_complited" id="is_complited">
+                <option value="False" selected>Pending</option>
+                <option value="True">Completed</option>
+            </select>
+
+            <label for="due_date">Due Date</label>
+            <input type="date" name="due_date" id="due_date" required>
+
+            <button type="submit" class="add-btn">Add Todo</button>
+        </form>
+    </div>
+
+    <div class="table-box">
+        <h2>Saved Todos</h2>
+
+        <form action="/get" method="get">
+            <button type="submit" class="add-btn">Show Todos</button>
+        </form>
+
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Description</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Due Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for i in data %}
+                    <tr>
+                        <td>{{ i.id }}</td>
+                        <td>{{ i.title }}</td>
+                        <td>{{ i.description }}</td>
+                        <td>{{ i.priority|capitalize }}</td>
+                        <td>
+                            {% if i.is_complited == "True" %}
+                                Completed
+                            {% else %}
+                                Pending
+                            {% endif %}
+                        </td>
+                        <td>{{ i.due_date.strftime('%d-%m-%Y') }}</td>
+                        <td>
+                            <a class="action toggle-btn"
+                               href="{{ url_for('toggle_todo', id=i.id) }}">
+                                Toggle
+                            </a>
+
+                            <form action="/edit" method="get" class="inline-form">
+                                <input type="hidden" name="e_id" value="{{ i.id }}">
+                                <button class="edit-btn" type="submit">Edit</button>
+                            </form>
+
+                            <form action="/delete" method="post" class="inline-form"
+                                  onsubmit="return confirm('Delete this todo?')">
+                                <input type="hidden" name="d_id" value="{{ i.id }}">
+                                <button class="delete-btn" type="submit">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7">No todos available. Add a new todo!</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</body>
+</html>
