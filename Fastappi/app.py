@@ -1,86 +1,115 @@
-from fastapi import (
-    FastAPI,
-    Depends,
-    Request,
-    Form,
-    HTTPException
-)
+from pathlib import Path
+from fastapi import FastAPI, Request, Depends, Form, HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from sqlalchemy.orm import Session
-
-from database import engine, Base, get_db
-from model import Task
-
-
-# --------------------------------------------------
-# APP CONFIGURATION
-# --------------------------------------------------
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Date
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from datetime import date
 
 app = FastAPI()
 
-# Change this secret before deployment.
+# Session Middleware
 app.add_middleware(
     SessionMiddleware,
-    secret_key="replace-this-with-a-long-random-secret-key",
+    secret_key="hello python",
     same_site="lax",
     https_only=False
 )
 
-templates = Jinja2Templates(directory="templates")
+# Database Configuration
+DATABASE_URL = "sqlite:///./tasks.db"
 
-# Automatically create tables when the application starts.
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False}
+)
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
+
+Base = declarative_base()
+
+# Templates Path Fix
+BASE_DIR = Path(__file__).resolve().parent
+templates = Jinja2Templates(
+    directory=str(BASE_DIR / "templates")
+)
+
+
+# Database Model
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(150), default=None)
+    description = Column(String(300), default=None)
+    priority = Column(String(20), default=None)
+    is_completed = Column(Boolean, default=False)
+    created_by = Column(String(100), nullable=False)
+    due_date = Column(Date, default=date.today)
+
+
 Base.metadata.create_all(bind=engine)
 
+print("Database successfully created")
 
-# --------------------------------------------------
-# LOGIN REQUIRED
-# --------------------------------------------------
 
-def get_logged_in_user(request: Request):
+# Database Connection
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# Get Logged-in Username
+def get_username(request: Request):
     username = request.session.get("username")
 
     if not username:
-        return None
+        raise HTTPException(
+            status_code=401,
+            detail="Please Login First"
+        )
 
     return username
 
 
-# --------------------------------------------------
-# HOME: PENDING AND COMPLETED TASKS
-# --------------------------------------------------
+# Get User Task
+def get_user_task(task_id: int, username: str, db: Session):
+    task = db.query(Task).filter(
+        Task.id == task_id,
+        Task.created_by == username
+    ).first()
 
-@app.get("/")
-def home(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    username = get_logged_in_user(request)
-
-    if not username:
-        return RedirectResponse(
-            url="/login",
-            status_code=303
+    if task is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Task Not Found"
         )
 
-    # Only fetch the logged-in user's tasks.
-    tasks = (
-        db.query(Task)
-        .filter(Task.created_by == username)
-        .order_by(Task.created_at.desc())
-        .all()
-    )
+    return task
 
-    pending_tasks = [
-        task for task in tasks
-        if not task.is_completed
-    ]
 
-    completed_tasks = [
-        task for task in tasks
-        if task.is_completed
-    ]
+# Home Page
+@app.get("/")
+def home(request: Request, db: Session = Depends(get_db)):
+    username = request.session.get("username")
+
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+
+    tasks = db.query(Task).filter(
+        Task.created_by == username
+    ).order_by(Task.id.desc()).all()
+
+    pending_task = [t for t in tasks if not t.is_completed]
+    complited_task = [t for t in tasks if t.is_completed]
 
     theme = request.cookies.get("theme", "light")
 
@@ -92,20 +121,17 @@ def home(
         name="index.html",
         context={
             "username": username,
-            "pending_tasks": pending_tasks,
-            "completed_tasks": completed_tasks,
+            "pending_tasks": pending_task,
+            "complited_task": complited_task,
             "theme": theme
         }
     )
 
 
-# --------------------------------------------------
-# GET LOGIN PAGE
-# --------------------------------------------------
-
+# Login Page
 @app.get("/login")
 def login_page(request: Request):
-    if get_logged_in_user(request):
+    if request.session.get("username"):
         return RedirectResponse("/", status_code=303)
 
     return templates.TemplateResponse(
@@ -115,10 +141,7 @@ def login_page(request: Request):
     )
 
 
-# --------------------------------------------------
-# POST LOGIN: SAVE USER IN SESSION
-# --------------------------------------------------
-
+# Login Function
 @app.post("/login")
 def login(
     request: Request,
@@ -126,45 +149,32 @@ def login(
 ):
     username = username.strip()
 
-    if not username:
+    if not username or len(username) > 100:
         return templates.TemplateResponse(
             request=request,
             name="login.html",
-            context={"error": "Please enter your name."},
+            context={
+                "error": "Enter Name Up to 100 Character"
+            },
             status_code=400
         )
 
-    if len(username) > 100:
-        return templates.TemplateResponse(
-            request=request,
-            name="login.html",
-            context={"error": "Name must be 100 characters or fewer."},
-            status_code=400
-        )
-
-    # Clear old session data before logging in.
     request.session.clear()
     request.session["username"] = username
 
     return RedirectResponse("/", status_code=303)
 
 
-# --------------------------------------------------
-# ADD TASK
-# --------------------------------------------------
-
+# Add Task
 @app.post("/add")
 def add_task(
     request: Request,
     title: str = Form(...),
-    description: str = Form(""),
-    priority: str = Form("Medium"),
+    description: str = Form(...),
+    priority: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    username = get_logged_in_user(request)
-
-    if not username:
-        return RedirectResponse("/login", status_code=303)
+    username = get_username(request)
 
     title = title.strip()
     description = description.strip()
@@ -172,64 +182,45 @@ def add_task(
     if not title or len(title) > 150:
         raise HTTPException(
             status_code=400,
-            detail="Title is required and must be at most 150 characters."
+            detail="Title must contain 1 to 150 characters"
         )
 
     if len(description) > 300:
         raise HTTPException(
             status_code=400,
-            detail="Description must be at most 300 characters."
+            detail="Description cannot exceed 300 characters"
         )
 
     if priority not in ("High", "Medium", "Low"):
         raise HTTPException(
             status_code=400,
-            detail="Invalid priority."
+            detail="Invalid Priority"
         )
 
-    new_task = Task(
+    task = Task(
         title=title,
         description=description,
         priority=priority,
         is_completed=False,
-        created_by=username
+        created_by=username,
+        due_date=date.today()
     )
 
-    db.add(new_task)
+    db.add(task)
     db.commit()
 
     return RedirectResponse("/", status_code=303)
 
 
-# --------------------------------------------------
-# TOGGLE TASK COMPLETION
-# --------------------------------------------------
-
+# Complete / Incomplete Task
 @app.get("/toggle/{id}")
 def toggle_task(
     id: int,
     request: Request,
     db: Session = Depends(get_db)
 ):
-    username = get_logged_in_user(request)
-
-    if not username:
-        return RedirectResponse("/login", status_code=303)
-
-    task = (
-        db.query(Task)
-        .filter(
-            Task.id == id,
-            Task.created_by == username
-        )
-        .first()
-    )
-
-    if task is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Task not found."
-        )
+    username = get_username(request)
+    task = get_user_task(id, username, db)
 
     task.is_completed = not task.is_completed
     db.commit()
@@ -237,84 +228,38 @@ def toggle_task(
     return RedirectResponse("/", status_code=303)
 
 
-# --------------------------------------------------
-# GET EDIT PAGE
-# --------------------------------------------------
-
+# Edit Task Page
 @app.get("/edit/{id}")
-def edit_task_page(
+def edit_task(
     id: int,
     request: Request,
     db: Session = Depends(get_db)
 ):
-    username = get_logged_in_user(request)
-
-    if not username:
-        return RedirectResponse("/login", status_code=303)
-
-    task = (
-        db.query(Task)
-        .filter(
-            Task.id == id,
-            Task.created_by == username
-        )
-        .first()
-    )
-
-    if task is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Task not found."
-        )
-
-    theme = request.cookies.get("theme", "light")
-
-    if theme not in ("light", "dark"):
-        theme = "light"
+    username = get_username(request)
+    task = get_user_task(id, username, db)
 
     return templates.TemplateResponse(
         request=request,
         name="edit.html",
         context={
             "task": task,
-            "username": username,
-            "theme": theme
+            "username": username
         }
     )
 
 
-# --------------------------------------------------
-# UPDATE TASK
-# --------------------------------------------------
-
+# Update Task
 @app.post("/update/{id}")
 def update_task(
     id: int,
     request: Request,
     title: str = Form(...),
-    description: str = Form(""),
-    priority: str = Form("Medium"),
+    description: str = Form(...),
+    priority: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    username = get_logged_in_user(request)
-
-    if not username:
-        return RedirectResponse("/login", status_code=303)
-
-    task = (
-        db.query(Task)
-        .filter(
-            Task.id == id,
-            Task.created_by == username
-        )
-        .first()
-    )
-
-    if task is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Task not found."
-        )
+    username = get_username(request)
+    task = get_user_task(id, username, db)
 
     title = title.strip()
     description = description.strip()
@@ -322,19 +267,19 @@ def update_task(
     if not title or len(title) > 150:
         raise HTTPException(
             status_code=400,
-            detail="Title is required and must be at most 150 characters."
+            detail="Title must contain 1-150 characters"
         )
 
     if len(description) > 300:
         raise HTTPException(
             status_code=400,
-            detail="Description must be at most 300 characters."
+            detail="Description cannot exceed 300 characters"
         )
 
     if priority not in ("High", "Medium", "Low"):
         raise HTTPException(
             status_code=400,
-            detail="Invalid priority."
+            detail="Invalid Priority"
         )
 
     task.title = title
@@ -346,35 +291,15 @@ def update_task(
     return RedirectResponse("/", status_code=303)
 
 
-# --------------------------------------------------
-# DELETE TASK
-# --------------------------------------------------
-
+# Delete Task
 @app.post("/delete/{id}")
 def delete_task(
     id: int,
     request: Request,
     db: Session = Depends(get_db)
 ):
-    username = get_logged_in_user(request)
-
-    if not username:
-        return RedirectResponse("/login", status_code=303)
-
-    task = (
-        db.query(Task)
-        .filter(
-            Task.id == id,
-            Task.created_by == username
-        )
-        .first()
-    )
-
-    if task is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Task not found."
-        )
+    username = get_username(request)
+    task = get_user_task(id, username, db)
 
     db.delete(task)
     db.commit()
@@ -382,19 +307,18 @@ def delete_task(
     return RedirectResponse("/", status_code=303)
 
 
-# --------------------------------------------------
-# SET THEME COOKIE
-# --------------------------------------------------
-
+# Change Theme
 @app.get("/set-theme/{theme}")
-def set_theme(theme: str, request: Request):
-    if not get_logged_in_user(request):
-        return RedirectResponse("/login", status_code=303)
+def set_theme(
+    request: Request,
+    theme: str
+):
+    get_username(request)
 
     if theme not in ("light", "dark"):
         raise HTTPException(
-            status_code=400,
-            detail="Invalid theme."
+            status_code=404,
+            detail="Theme Must Be Light Or Dark"
         )
 
     response = RedirectResponse("/", status_code=303)
@@ -411,12 +335,9 @@ def set_theme(theme: str, request: Request):
     return response
 
 
-# --------------------------------------------------
-# LOGOUT
-# --------------------------------------------------
-
+# Logout
 @app.get("/logout")
-def logout(request: Request):
+def logout_task(request: Request):
     request.session.clear()
 
     return RedirectResponse("/login", status_code=303)
