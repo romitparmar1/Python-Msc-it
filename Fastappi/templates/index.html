@@ -1,0 +1,84 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Task Manager</title>
+</head>
+<body>
+
+    <h1>Task Manager</h1>
+
+    <p>Welcome, {{ username }}</p>
+    <a href="/logout">Logout</a>
+
+    <hr>
+
+    <h2>Add New Task</h2>
+
+    <form action="/add" method="post">
+        <label>Title:</label><br>
+        <input type="text" name="title" required maxlength="150">
+        <br><br>
+
+        <label>Description:</label><br>
+        <textarea name="description" maxlength="300"></textarea>
+        <br><br>
+
+        <label>Priority:</label><br>
+        <select name="priority" required>
+            <option value="High">High</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="Low">Low</option>
+        </select>
+        <br><br>
+
+        <button type="submit">Add Task</button>
+    </form>
+
+    <hr>
+
+    <h2>Pending Tasks</h2>
+
+    {% for task in pending_tasks %}
+        <div>
+            <h3>{{ task.title }}</h3>
+            <p>Description: {{ task.description or 'No description' }}</p>
+            <p>Priority: {{ task.priority }}</p>
+            <p>Due Date: {{ task.due_date }}</p>
+
+            <a href="/toggle/{{ task.id }}">Complete</a>
+            <a href="/edit/{{ task.id }}">Edit</a>
+
+            <form action="/delete/{{ task.id }}" method="post"
+                  style="display:inline">
+                <button type="submit">Delete</button>
+            </form>
+        </div>
+        <hr>
+    {% else %}
+        <p>No pending tasks.</p>
+    {% endfor %}
+
+    <h2>Completed Tasks</h2>
+
+    {% for task in complited_task %}
+        <div>
+            <h3>{{ task.title }}</h3>
+            <p>Description: {{ task.description or 'No description' }}</p>
+            <p>Priority: {{ task.priority }}</p>
+
+            <a href="/toggle/{{ task.id }}">Mark Pending</a>
+            <a href="/edit/{{ task.id }}">Edit</a>
+
+            <form action="/delete/{{ task.id }}" method="post"
+                  style="display:inline">
+                <button type="submit">Delete</button>
+            </form>
+        </div>
+        <hr>
+    {% else %}
+        <p>No completed tasks.</p>
+    {% endfor %}
+
+</body>
+</html>

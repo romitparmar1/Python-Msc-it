@@ -1,0 +1,72 @@
+
+<html>
+<head>
+    <title>Task Manager</title>
+</head>
+<body>
+
+    <h1>Task Manager</h1>
+
+    <p>Welcome {{ username }}</p>
+    <a href="/logout">Logout</a>
+
+    <h2>Add Task</h2>
+
+    <form action="/add" method="post">
+        Title:
+        <input type="text" name="title" required>
+        <br><br>
+
+        Description:
+        <input type="text" name="description">
+        <br><br>
+
+        Priority:
+        <select name="priority">
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+        </select>
+        <br><br>
+
+        <button type="submit">Add Task</button>
+    </form>
+
+    <h2>Pending Tasks</h2>
+
+    {% for task in pending_tasks %}
+        <p>Title: {{ task.title }}</p>
+        <p>Description: {{ task.description }}</p>
+        <p>Priority: {{ task.priority }}</p>
+
+        <a href="/toggle/{{ task.id }}">Complete</a>
+        <a href="/edit/{{ task.id }}">Edit</a>
+
+        <form action="/delete/{{ task.id }}" method="post">
+            <button type="submit">Delete</button>
+        </form>
+        <hr>
+    {% else %}
+        <p>No pending tasks</p>
+    {% endfor %}
+
+    <h2>Completed Tasks</h2>
+
+    {% for task in complited_task %}
+        <p>Title: {{ task.title }}</p>
+        <p>Description: {{ task.description }}</p>
+        <p>Priority: {{ task.priority }}</p>
+
+        <a href="/toggle/{{ task.id }}">Mark Pending</a>
+        <a href="/edit/{{ task.id }}">Edit</a>
+
+        <form action="/delete/{{ task.id }}" method="post">
+            <button type="submit">Delete</button>
+        </form>
+        <hr>
+    {% else %}
+        <p>No completed tasks</p>
+    {% endfor %}
+
+</body>
+</html>
